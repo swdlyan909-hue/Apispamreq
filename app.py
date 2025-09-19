@@ -452,13 +452,17 @@ class TcpBotConnectMain:
                 self.id, self.nm = (command[6:].split(" ", 1) if " " in command[6:] else [command[6:], "insta:kha_led_mhd"])
                 print(f"[{self.account_id}] Executing /bngx for code {self.id}")
 
-                if self.account_id == MASTER_ACCOUNT_ID:
-                    got_0500 = False
-                    attempts = 0
-                    while not got_0500 and attempts < 20:
-                        attempts += 1
-                        print(f"[{self.account_id}] Attempt {attempts} joining squad {self.id}...")
+                got_0500 = False
+                attempts = 0
 
+                while not got_0500 and attempts < 20:
+                    attempts += 1
+                    print(f"[{self.account_id}] Attempt {attempts} joining squad {self.id}...")
+
+                    target_id = self.id
+                    target_squad = None
+
+                    if self.account_id == MASTER_ACCOUNT_ID:
                         self.socket_client.send(GenJoinSquadsPacket(self.id, self.key, self.iv))
                         time.sleep(0.01)
 
@@ -476,6 +480,10 @@ class TcpBotConnectMain:
 
                                 self.socket_client.send(ExiT('000000', self.key, self.iv))
                                 self.socket_client.send(ghost_pakcet(idT, self.nm, sq, self.key, self.iv))
+
+                                # إرسال الرسالة بعد دخول الأشباح
+                                self.socket_client.send(xSendTeamMsg("BNGX IS HERE", idT, self.key, self.iv))
+
                                 got_0500 = True
                             except Exception as parse_err:
                                 print(f"[{self.account_id}] Error parsing 0500: {parse_err}")
@@ -483,25 +491,34 @@ class TcpBotConnectMain:
                             print(f"[{self.account_id}] No 0500 yet, retrying...")
                             self.socket_client.send(ExiT('000000', self.key, self.iv))
                             time.sleep(0.01)
-                    if not got_0500:
-                        return f"Failed to get 0500 for code {self.id} after {attempts} attempts"
-                    return f"/bngx master command executed successfully"
 
-                else:
-                    wait_attempts = 0
-                    while not shared_0500_info['got'] and wait_attempts < 100:
-                        time.sleep(0.1)
-                        wait_attempts += 1
+                    else:
+                        # Ghost clients
+                        wait_attempts = 0
+                        while not shared_0500_info['got'] and wait_attempts < 100:
+                            time.sleep(0.1)
+                            wait_attempts += 1
 
-                    if not shared_0500_info['got']:
-                        return "Timeout waiting for master account to get 0500"
+                        if not shared_0500_info['got']:
+                            return "Timeout waiting for master account to get 0500"
 
-                    self.socket_client.send(GenJoinSquadsPacket(shared_0500_info['idT'], self.key, self.iv))
-                    time.sleep(0.01)
-                    self.socket_client.send(ExiT('000000', self.key, self.iv))
-                    self.socket_client.send(ghost_pakcet(shared_0500_info['idT'], self.nm, shared_0500_info['squad'], self.key, self.iv))
+                        idT = shared_0500_info['idT']
+                        sq = shared_0500_info['squad']
 
-                    return f"/bngx ghost command executed using master data"
+                        self.socket_client.send(GenJoinSquadsPacket(idT, self.key, self.iv))
+                        time.sleep(0.01)
+                        self.socket_client.send(ExiT('000000', self.key, self.iv))
+                        self.socket_client.send(ghost_pakcet(idT, self.nm, sq, self.key, self.iv))
+
+                        # إرسال الرسالة بعد دخول الأشباح
+                        self.socket_client.send(xSendTeamMsg("BNGX IS HERE", idT, self.key, self.iv))
+
+                        got_0500 = True
+
+                if not got_0500:
+                    return f"Failed to get 0500 for code {self.id} after {attempts} attempts"
+
+                return f"/bngx command executed successfully for {self.account_id}"
 
             except Exception as e:
                 print(f"[{self.account_id}] Error in execute_command: {e}")
